@@ -1,0 +1,1 @@
+# Nincs külső Python függőség, az alkalmazás standard library alapú.
