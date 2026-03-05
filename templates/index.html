@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Számla fordító</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Külföldi számla ➜ magyar Word fordítás</h1>
+      <p>Töltsd fel a számlát (PDF/kép/TXT), majd kattints a gombra. A rendszer automatikusan elkészíti a Word dokumentumot.</p>
+
+      <form id="invoiceForm">
+        <label for="invoice">Számla fájl</label>
+        <input id="invoice" name="invoice" type="file" accept=".pdf,.png,.jpg,.jpeg,.tiff,.bmp,.txt" required />
+        <button type="submit">Fordítás és Word letöltése</button>
+      </form>
+
+      <div id="status" class="status" aria-live="polite"></div>
+    </main>
+
+    <script>
+      const form = document.getElementById('invoiceForm');
+      const statusEl = document.getElementById('status');
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const fileInput = document.getElementById('invoice');
+        if (!fileInput.files.length) {
+          statusEl.textContent = 'Válassz ki egy számlát!';
+          statusEl.className = 'status error';
+          return;
+        }
+
+        statusEl.textContent = 'Feldolgozás folyamatban...';
+        statusEl.className = 'status loading';
+
+        const formData = new FormData();
+        formData.append('invoice', fileInput.files[0]);
+
+        try {
+          const response = await fetch('/api/translate-invoice', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Ismeretlen hiba történt.');
+          }
+
+          const blob = await response.blob();
+          const contentDisposition = response.headers.get('content-disposition') || '';
+          const nameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+          const filename = nameMatch ? nameMatch[1] : 'magyar_forditas.docx';
+
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+
+          statusEl.textContent = 'Kész! A Word fájl letöltése elindult.';
+          statusEl.className = 'status success';
+        } catch (error) {
+          statusEl.textContent = `Hiba: ${error.message}`;
+          statusEl.className = 'status error';
+        }
+      });
+    </script>
+  </body>
+</html>
